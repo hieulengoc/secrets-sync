@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "secretsSync.fullname" . }}
+  labels:
+    {{- include "secretsSync.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "secretsSync.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-secrets.yaml") . | sha256sum }}
+      labels:
+        {{- include "secretsSync.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "secretsSync.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: LOG_LEVEL
+              value: "{{ .Values.log.level }}"
+            - name: LOG_FORMATTER
+              value: "{{ .Values.log.formatter }}"
+            - name: CONFIG_PATH
+              value: "{{ .Values.configPath }}"
+          # livenessProbe:
+            # failureThreshold: 3
+            # successThreshold: 1
+            # timeoutSeconds: 3
+            # periodSeconds: 5
+            # httpGet:
+              # path: /health
+              # port: http
+          # readinessProbe:
+            # failureThreshold: 3
+            # successThreshold: 3
+            # timeoutSeconds: 2
+            # periodSeconds: 3
+            # httpGet:
+              # path: /health
+              # port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /home/app/config
+              name: {{ template "secretsSync.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - configMap:
+            defaultMode: 0777
+            name: {{ template "secretsSync.fullname" . }}-config
+          name: {{ template "secretsSync.fullname" . }}-config

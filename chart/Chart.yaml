@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 0.1.5
+description: A helm chart for secrets-sync
+name: secrets-sync
+version: 0.1.0
+type: application
